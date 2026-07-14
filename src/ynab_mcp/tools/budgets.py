@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 from ynab_mcp.client import YnabClient
 from ynab_mcp.errors import handle_api_error
