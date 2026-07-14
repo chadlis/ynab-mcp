@@ -37,7 +37,10 @@ Source lives under `src/ynab_mcp/` (src-layout, installed package):
 - `formatting.py` — milliunits <-> amount conversion, `paginate()`, `to_json()`,
   and the `ResponseFormat` enum (markdown | json).
 - `server.py` — `build_server()` creates the `FastMCP` instance and registers
-  tools; `main()` is the console entry point and picks the transport.
+  tools. The module-level `mcp = build_server()` is the default instance used
+  by both `main()` (console entry point, picks the transport) and by any
+  `module:object` deploy target (e.g. FastMCP Cloud). Uses the `fastmcp`
+  package, not `mcp.server.fastmcp` — see "Deployment" below for why.
 - `tools/` — one module per domain (`budgets`, `accounts`, `categories`,
   `payees`, `transactions`, `months`). Each exposes `register(mcp, client)`;
   `tools/__init__.py:register_all()` wires them all. Shared annotation dicts
@@ -76,5 +79,21 @@ as a closure over `client`, and ensure the module is called from `register_all`.
 ## Testing notes
 
 Tests mock HTTP with `respx` and never hit the live API. `test_tools.py` drives
-tools through `FastMCP.call_tool(name, args)`, which returns
-`(content_blocks, {"result": <text>})`.
+tools through `FastMCP.call_tool(name, args)`, which returns a `ToolResult`
+whose `.structured_content["result"]` holds the tool's text output.
+
+## Deployment (FastMCP Cloud)
+
+The server depends on the `fastmcp` package (not the `mcp` SDK's built-in
+`mcp.server.fastmcp`) specifically so it can be deployed as-is on
+[FastMCP Cloud](https://fastmcp.cloud), which expects a `module:object`
+entrypoint pointing at a `FastMCP` instance built with that package.
+
+- Entrypoint: `src/ynab_mcp/server.py:mcp`.
+- Dependencies are auto-detected from `pyproject.toml`.
+- Set `YNAB_TOKEN` (and optionally `YNAB_BUDGET_ID`) as environment
+  variables/secrets in the FastMCP Cloud project settings — never via `.env`,
+  which isn't committed.
+- Validate locally before pushing: `uv run fastmcp inspect src/ynab_mcp/server.py:mcp`.
+- FastMCP Cloud runs its own HTTP transport; `MCP_TRANSPORT`/`HOST`/`PORT` only
+  matter for `main()` (i.e. `uv run ynab-mcp` / Claude Desktop / self-hosting).

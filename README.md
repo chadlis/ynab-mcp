@@ -67,6 +67,23 @@ Set `MCP_TRANSPORT=http` to serve over streamable-http (endpoint `/mcp`):
 MCP_TRANSPORT=http HOST=0.0.0.0 PORT=8000 uv run ynab-mcp
 ```
 
+## Deploy to FastMCP Cloud
+
+This server is built with the [`fastmcp`](https://gofastmcp.com) package, so
+it deploys as-is on [FastMCP Cloud](https://fastmcp.cloud):
+
+1. Push this repo to GitHub, then connect it as a project on fastmcp.cloud.
+2. Set the entrypoint to `src/ynab_mcp/server.py:mcp`.
+3. Add `YNAB_TOKEN` (and optionally `YNAB_BUDGET_ID`) as an environment
+   variable/secret in the project settings — dependencies are picked up
+   automatically from `pyproject.toml`.
+
+You can validate the entrypoint locally first:
+
+```bash
+uv run fastmcp inspect src/ynab_mcp/server.py:mcp
+```
+
 ## Conventions
 
 - Amounts are in normal currency units; **an expense is negative** (e.g. `-12.50`).
