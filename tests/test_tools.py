@@ -27,8 +27,8 @@ def server():
 
 async def call(server, name: str, arguments: dict | None = None) -> str:
     """Invoke a tool and return its text result."""
-    _content, structured = await server.call_tool(name, arguments or {})
-    return structured["result"]
+    result = await server.call_tool(name, arguments or {})
+    return result.structured_content["result"]
 
 
 @respx.mock
