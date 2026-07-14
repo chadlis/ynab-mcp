@@ -136,6 +136,62 @@ async def test_create_transaction_sends_milliunits(server):
 
 
 @respx.mock
+async def test_create_transaction_with_subtransactions(server):
+    route = respx.post(f"{YNAB_API_BASE}/budgets/last-used/transactions").mock(
+        return_value=httpx.Response(
+            201,
+            json={
+                "data": {
+                    "transaction": {
+                        "id": "t2",
+                        "date": "2026-07-14",
+                        "amount": -10000,
+                        "payee_name": "Supermarket",
+                    }
+                }
+            },
+        )
+    )
+    out = await call(
+        server,
+        "ynab_create_transaction",
+        {
+            "account_id": "a1",
+            "amount": -100.0,
+            "payee_name": "Supermarket",
+            "category_id": "should-be-ignored",
+            "subtransactions": [
+                {"amount": -60.0, "category_id": "groceries"},
+                {"amount": -40.0, "category_id": "household", "memo": "cleaning supplies"},
+            ],
+        },
+    )
+
+    body = json.loads(route.calls.last.request.content)
+    subs = body["transaction"]["subtransactions"]
+    assert "category_id" not in body["transaction"]
+    assert subs == [
+        {"amount": -60000, "category_id": "groceries"},
+        {"amount": -40000, "category_id": "household", "memo": "cleaning supplies"},
+    ]
+    assert "2 splits" in out
+
+
+@respx.mock
+async def test_create_transaction_rejects_mismatched_splits(server):
+    out = await call(
+        server,
+        "ynab_create_transaction",
+        {
+            "account_id": "a1",
+            "amount": -100.0,
+            "subtransactions": [{"amount": -60.0, "category_id": "groceries"}],
+        },
+    )
+    assert "must sum to" in out.lower()
+
+
+@respx.mock
 async def test_error_maps_to_friendly_message(server):
     respx.get(f"{YNAB_API_BASE}/budgets").mock(return_value=httpx.Response(401))
     out = await call(server, "ynab_list_budgets")
