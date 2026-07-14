@@ -61,6 +61,52 @@ async def test_list_accounts_formats_markdown(server):
 
 
 @respx.mock
+async def test_list_categories_excludes_internal_inflow(server):
+    respx.get(f"{YNAB_API_BASE}/budgets/last-used/categories").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "data": {
+                    "category_groups": [
+                        {
+                            "name": "Internal Master Category",
+                            "hidden": False,
+                            "categories": [
+                                {
+                                    "id": "inflow",
+                                    "name": "Inflow: Ready to Assign",
+                                    "budgeted": 0,
+                                    "activity": 43342000,
+                                    "balance": 43342000,
+                                }
+                            ],
+                        },
+                        {
+                            "name": "Everyday Expenses",
+                            "hidden": False,
+                            "categories": [
+                                {
+                                    "id": "groceries",
+                                    "name": "Groceries",
+                                    "budgeted": 30000,
+                                    "activity": -26000,
+                                    "balance": 4000,
+                                }
+                            ],
+                        },
+                    ]
+                }
+            },
+        )
+    )
+    out = await call(server, "ynab_list_categories")
+
+    assert "Inflow: Ready to Assign" not in out
+    assert "43342" not in out
+    assert "Groceries" in out
+
+
+@respx.mock
 async def test_create_transaction_sends_milliunits(server):
     route = respx.post(f"{YNAB_API_BASE}/budgets/last-used/transactions").mock(
         return_value=httpx.Response(
