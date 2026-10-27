@@ -25,3 +25,11 @@ WRITE_UPDATE = {
     "idempotentHint": True,
     "openWorldHint": True,
 }
+
+# MCP tool annotations for write tools that delete resources.
+DESTRUCTIVE = {
+    "readOnlyHint": False,
+    "destructiveHint": True,
+    "idempotentHint": True,
+    "openWorldHint": True,
+}

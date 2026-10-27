@@ -8,15 +8,28 @@ Claude Desktop and claude.ai.
 
 **Read**
 - `ynab_list_budgets` — budgets accessible with your token
-- `ynab_list_accounts` — accounts and balances of a budget
+- `ynab_list_accounts` — accounts, balances, on/off-budget and `transfer_payee_id`
 - `ynab_list_categories` — category groups with budgeted / activity / balance
 - `ynab_list_payees` — payees (paginated)
-- `ynab_list_transactions` — transactions with filters (account, category, date, type)
+- `ynab_list_transactions` — transactions with filters (account, category, date range, type,
+  payee text, exact amount, account name); optional split lines
+- `ynab_get_transaction` — every field of one transaction, including split lines
 - `ynab_get_budget_month` — monthly summary (to-be-budgeted, income, activity, age of money)
 
 **Write**
-- `ynab_create_transaction` — create a transaction (amount in currency units, negative = expense)
-- `ynab_update_transaction` — partially update a transaction (categorize, approve, memo…)
+- `ynab_create_transaction` — create a transaction, split and/or transfer (amount in currency
+  units, negative = expense)
+- `ynab_update_transaction` — partially update a transaction (categorize, approve, memo, flag,
+  turn into a transfer…)
+- `ynab_update_transactions` — update up to 100 transactions in one API call
+- `ynab_split_transaction` — split an existing (e.g. imported) transaction in place
+- `ynab_delete_transaction` — delete a transaction (`confirm=true` required)
+- `ynab_set_category_budgeted` / `ynab_move_money` — assign or move money between categories
+
+**Transfers**: never pass `payee_name="Transfer : X"` (YNAB rejects it). Pass
+`transfer_account_name="X"` (case, accents and emoji ignored) or `transfer_account_id`,
+also inside split lines. A transfer from an on-budget account to an off-budget
+(tracking) account requires a `category_id`; between on-budget accounts it takes none.
 
 ## Requirements
 
@@ -89,7 +102,8 @@ uv run fastmcp inspect src/ynab_mcp/server.py:mcp
 - Amounts are in normal currency units; **an expense is negative** (e.g. `-12.50`).
   Conversion to/from YNAB milliunits is automatic.
 - `budget_id` defaults to `YNAB_BUDGET_ID`, or the `"last-used"` budget if unset.
-- YNAB rate limit: 200 requests / hour / token.
+- YNAB rate limit: 200 requests / hour / token. Batch tools report the remaining quota.
+  Accounts are cached in memory for 10 minutes to resolve transfers without extra calls.
 
 ## Development
 

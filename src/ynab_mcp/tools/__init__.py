@@ -5,7 +5,17 @@ from __future__ import annotations
 from fastmcp import FastMCP
 
 from ynab_mcp.client import YnabClient
-from ynab_mcp.tools import accounts, budgets, categories, months, payees, transactions
+from ynab_mcp.tools import (
+    accounts,
+    budgeting,
+    budgets,
+    bulk,
+    categories,
+    months,
+    payees,
+    splits,
+    transactions,
+)
 
 
 def register_all(mcp: FastMCP, client: YnabClient) -> None:
@@ -15,4 +25,7 @@ def register_all(mcp: FastMCP, client: YnabClient) -> None:
     categories.register(mcp, client)
     payees.register(mcp, client)
     transactions.register(mcp, client)
+    splits.register(mcp, client)
+    bulk.register(mcp, client)
     months.register(mcp, client)
+    budgeting.register(mcp, client)

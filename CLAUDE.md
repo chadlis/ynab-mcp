@@ -6,8 +6,9 @@ Guidance for Claude Code (and other agents) working in this repository.
 
 An MCP server that exposes the **YNAB (You Need A Budget)** API to MCP clients
 (Claude Desktop, claude.ai, etc.). It offers read tools (budgets, accounts,
-categories, payees, transactions, month summary) and write tools (create /
-update a transaction). Managed with **uv**.
+categories, payees, transactions, single transaction, month summary) and write
+tools (create / update / bulk-update / split / delete transactions, assign and
+move category money). Managed with **uv**.
 
 ## Commands
 
@@ -32,8 +33,13 @@ Source lives under `src/ynab_mcp/` (src-layout, installed package):
   else falls back to the `"last-used"` shortcut.
 - `client.py` — `YnabClient` wraps a **single reusable** `httpx.AsyncClient`
   (base URL, auth header, timeout). `request()` returns the API's `data` envelope.
+  It also tracks the hourly quota (`rate_limit_status()`, from YNAB's
+  `X-Rate-Limit` header) and caches accounts per budget for 10 min
+  (`get_accounts()`), used to resolve transfer payees.
 - `errors.py` — `handle_api_error()` maps exceptions to one friendly message
-  (401 token, 404 not found, 429 rate limit, timeouts).
+  (401 token, 404 not found, 429 rate limit, timeouts; other codes carry YNAB's
+  `error.detail` plus a suggestion). Raise `ToolInputError` for argument
+  validation failures detected before any write.
 - `formatting.py` — milliunits <-> amount conversion, `paginate()`, `to_json()`,
   and the `ResponseFormat` enum (markdown | json).
 - `server.py` — `build_server()` creates the `FastMCP` instance and registers
@@ -42,9 +48,11 @@ Source lives under `src/ynab_mcp/` (src-layout, installed package):
   `module:object` deploy target (e.g. FastMCP Cloud). Uses the `fastmcp`
   package, not `mcp.server.fastmcp` — see "Deployment" below for why.
 - `tools/` — one module per domain (`budgets`, `accounts`, `categories`,
-  `payees`, `transactions`, `months`). Each exposes `register(mcp, client)`;
+  `payees`, `transactions`, `splits`, `bulk`, `months`, `budgeting`). Each exposes `register(mcp, client)`;
   `tools/__init__.py:register_all()` wires them all. Shared annotation dicts
-  live in `tools/_common.py`.
+  live in `tools/_common.py`. Transaction helpers shared by several modules
+  (transfer resolution and rules, split validation, rendering) live in
+  `tools/_txn.py`.
 
 To add a tool: create/extend a module in `tools/`, define it inside `register()`
 as a closure over `client`, and ensure the module is called from `register_all`.
@@ -57,6 +65,11 @@ as a closure over `client`, and ensure the module is called from `register_all`.
 - **budget_id**: `"last-used"` targets the most recently opened budget.
 - **Rate limit**: 200 requests / hour / token. The API returns full collections;
   pagination in `list_*` tools is client-side via `paginate()`.
+- **Transfers**: `payee_id` = the target account's `transfer_payee_id`; never a
+  `"Transfer : X"` payee name. On-budget -> off-budget needs a category;
+  on-budget -> on-budget has none (`tools/_txn.py:resolve_payee`).
+- **Splits**: an existing split cannot be edited through the API; a non-split
+  transaction is converted in place with `PUT` + `subtransactions`.
 - Tool responses default to Markdown; pass `response_format="json"` for JSON.
 - Every tool wraps its body in `try/except` and returns `handle_api_error(e)` —
   never let an exception escape to the client.

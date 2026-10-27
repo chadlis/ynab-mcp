@@ -31,12 +31,16 @@ def register(mcp: FastMCP, client: YnabClient) -> None:
     ) -> str:
         """List a budget's accounts with their balance (converted to currency units).
 
-        Returns: id, name, type, on_budget (bool), current balance, closed flag.
+        Returns: id, name, type, on_budget (bool), current balance, closed flag,
+        and transfer_payee_id (the payee_id that makes a transaction a transfer to
+        this account — though transaction tools accept transfer_account_id /
+        transfer_account_name directly). Off-budget (tracking) accounts such as
+        personalLoan / otherAsset have on_budget=false.
         """
         try:
-            data = await client.request("GET", f"/budgets/{budget_id}/accounts")
+            raw = await client.get_accounts(budget_id, refresh=True)
             accounts = []
-            for a in data.get("accounts", []):
+            for a in raw:
                 if a.get("closed") and not include_closed:
                     continue
                 accounts.append(
@@ -47,14 +51,17 @@ def register(mcp: FastMCP, client: YnabClient) -> None:
                         "on_budget": a.get("on_budget"),
                         "balance": milliunits_to_amount(a.get("balance")),
                         "closed": a.get("closed"),
+                        "transfer_payee_id": a.get("transfer_payee_id"),
                     }
                 )
             if response_format is ResponseFormat.JSON:
                 return to_json(accounts)
             lines = [f"# Accounts ({budget_id})", ""]
             for a in accounts:
+                budget = "" if a["on_budget"] else ", off-budget"
                 lines.append(
-                    f"- **{a['name']}** ({a['type']}): {a['balance']} — id `{a['id']}`"
+                    f"- **{a['name']}** ({a['type']}{budget}): {a['balance']} — id `{a['id']}`"
+                    f" · transfer_payee_id `{a['transfer_payee_id']}`"
                 )
             return "\n".join(lines)
         except Exception as e:  # noqa: BLE001
